@@ -75,7 +75,7 @@ SQSTRING_RGX = r'"([^"\\]|\\.)*("|\\$)'
 TQSTRING_RGX = r'"""([^"]|"(?!""))*("""|$)'
 # simple apostrophed rgx
 SASTRING_RGX = r"'([^'\\]|\\.)*('|\\$)"
-# triple apostrophed string rgx # FIXMY english please
+# triple apostrophed string rgx # FIXME english please
 TASTRING_RGX = r"'''([^']|'(?!''))*('''|$)"
 
 # finally, the string regular expression
