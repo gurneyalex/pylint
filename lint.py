@@ -146,7 +146,7 @@ should be a base name, not a path. You may set this option multiple times.'}),
                  This option conflict with the disable-checker option'}),
                
                ('persistent',
-                {'default': 1, 'type' : 'yn', 'metavar' : '<y_or_n>',
+                {'default': True, 'type' : 'yn', 'metavar' : '<y_or_n>',
                  'help' : 'Pickle collected data for later comparisons.'}),
                
                ('cache-size',
@@ -282,8 +282,14 @@ This is used by the global evaluation report (R0004).'}),
                         )
         self.register_checker(self)
         self._dynamic_plugins = []
+<<<<<<< /home/syt/cvs_work/hg_public/pylint/lint.py
         self.load_provider_defaults()
         self.set_reporter(reporter or TextReporter(sys.stdout))
+
+=======
+        self.load_provider_defaults()
+        self.set_reporter(reporter or TextReporter(sys.stdout))
+>>>>>>> /tmp/lint.py~other.s0wdK-
         
     def load_plugin_modules(self, modnames):
         """take a list of module names which are pylint plugins and load
@@ -340,12 +346,19 @@ This is used by the global evaluation report (R0004).'}),
         self.register_options_provider(checker)
         if hasattr(checker, 'msgs'):
             self.register_messages(checker)
+<<<<<<< /home/syt/cvs_work/hg_public/pylint/lint.py
+        checker.load_defaults()
+                
+=======
         # XXX adim should we load_defaults() here ?: checker.load_defaults()
         checker.load_defaults()
         
+>>>>>>> /tmp/lint.py~other.s0wdK-
     def enable_checkers(self, listed, enabled):
         """only enable/disable checkers from the given list"""
         idmap = {}
+        if not modname and filepath is None:
+            return
         for checker in self._checkers.keys():
             checker.enable(not enabled)
             idmap[checker.name] = checker
@@ -814,7 +827,11 @@ There are 5 kind of message types :
 processing.     
         ''')
         # read configuration
+<<<<<<< /home/syt/cvs_work/hg_public/pylint/lint.py
+        #linter.load_provider_defaults()
+=======
         # linter.load_provider_defaults()
+>>>>>>> /tmp/lint.py~other.s0wdK-
         linter.read_config_file()
         # is there some additional plugins in the file configuration, in
         config_parser = linter._config_parser
