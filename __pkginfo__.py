@@ -52,9 +52,6 @@ from os.path import join
 scripts = [join('bin', filename) for filename in 
             ('pylint', 'pylint-gui', "symilar", "epylint", "pyreverse")]
 
-include_dirs = [join('test', 'input'),
-                join('test', 'messages')]
-
 pyversions = ["2.3", "2.4", "2.5"]
 
 debian_uploader = 'Alexandre Fayolle <afayolle@debian.org>'
