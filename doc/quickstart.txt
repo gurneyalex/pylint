@@ -124,7 +124,7 @@ Example (extracted from a run of pylint on itself...):
   W: 74:searchall: Unreachable code
   W:171:FormatChecker.process_tokens: Redefining built-in (type)
   W:150:FormatChecker.process_tokens: Too many local variables (20/15)
-  W:150:FormatChecker.process_tokens: Too many branchs (13/12)
+  W:150:FormatChecker.process_tokens: Too many branches (13/12)
 
 
 Reports section
@@ -143,7 +143,7 @@ current run.
   * percentage of classes, functions and modules with docstrings, and
     a comparison from the previous run 
   * percentage of classes, functions and modules with correct name
-    (according the the coding standard), and a comparison from the
+    (according to the coding standard), and a comparison from the
     previous run 
   * a list of external dependencies found in the code, and where they appear
 
