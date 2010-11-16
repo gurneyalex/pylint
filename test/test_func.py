@@ -98,15 +98,16 @@ class LintTestUsingModule(testlib.TestCase):
             print ex
             ex.__str__ = exception_str
             raise
-        got = self.linter.reporter.finalize().strip()
+        got = self.linter.reporter.finalize()
         self.assertMultiLineEqual(got, self._get_expected())
+
 
     def _get_expected(self):
         if self.module.startswith('func_noerror_'):
             expected = ''
         else:
             output = open(self.output)
-            expected = output.read().strip()
+            expected = output.read().strip() + '\n'
             output.close()
         return expected
 
@@ -157,12 +158,12 @@ class TestTests(testlib.TestCase):
 
 class LintTestNonExistentModuleTC(LintTestUsingModule):
     module = 'nonexistent'
-    _get_expected = lambda self: 'F:  1: No module named nonexistent'
+    _get_expected = lambda self: 'F:  1: No module named nonexistent\n'
     tags = testlib.Tags(('generated','pylint_input_%s' % module))
 
 class LintTestNonExistentFileTC(LintTestUsingFile):
     module = join(INPUT_DIR, 'nonexistent.py')
-    _get_expected = lambda self: 'F:  1: No module named %s' % self.module[len(getcwd())+1 :]
+    _get_expected = lambda self: 'F:  1: No module named %s\n' % self.module[len(getcwd())+1 :]
     tags = testlib.Tags(('generated', 'pylint_input_%s' % module))
     def test_functionality(self):
         self._test([self.module])
@@ -207,14 +208,6 @@ def make_tests(filter_rgx):
             depends = dependencies or None
             tags = testlib.Tags(('generated', 'pylint_input_%s' % module))
         tests.append(LintTestUsingFileTC)
-
-##     # special test for f0003
-##     module_file, messages_file in get_tests_info('func_f0003', '.pyc')
-##     class LintTestSubclass(LintTest):
-##         module = module_file.replace('.pyc', '')
-##         output = messages_file
-##         depends = dependencies or None
-##     tests.append(LintTestSubclass)
 
     if is_to_run('nonexistent'):
         tests.append(LintTestNonExistentModuleTC)
