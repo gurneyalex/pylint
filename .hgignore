@@ -1,0 +1,8 @@
+(^|/)\.svn($|/)
+(^|/)\.hg($|/)
+(^|/)\.hgtags($|/)
+^log$
+\.pyc$
+\.pyo$
+^build$
+^doc/_build
