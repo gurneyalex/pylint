@@ -15,10 +15,11 @@
 # 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """check for signs of poor design"""
 
-from logilab.astng import Function, If, InferenceError
+from astroid import Function, If, InferenceError
 
-from pylint.interfaces import IASTNGChecker
+from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
+from pylint.checkers.utils import check_messages
 
 import re
 
@@ -28,10 +29,9 @@ IGNORED_ARGUMENT_NAMES = re.compile('_.*')
 SPECIAL_METHODS = [('Context manager', set(('__enter__',
                                             '__exit__',))),
                    ('Container', set(('__len__',
-                                      '__getitem__',
-                                      '__setitem__',
-                                      '__delitem__',))),
-                   ('Callable', set(('__call__',))),
+                                      '__getitem__',))),
+                   ('Mutable container', set(('__setitem__',
+                                              '__delitem__',))),
                    ]
 
 class SpecialMethodChecker(object):
@@ -55,8 +55,8 @@ class SpecialMethodChecker(object):
         required_methods_found = methods_required & self.methods_found
         if required_methods_found == methods_required:
             return True
-        if required_methods_found != set():
-            required_methods_missing  = methods_required - self.methods_found
+        if required_methods_found:
+            required_methods_missing = methods_required - self.methods_found
             self.on_error((protocol,
                            ', '.join(sorted(required_methods_found)),
                            ', '.join(sorted(required_methods_missing))))
@@ -78,11 +78,11 @@ MSGS = {
     'R0901': ('Too many ancestors (%s/%s)',
               'too-many-ancestors',
               'Used when class has too many parent classes, try to reduce \
-              this to get a more simple (and so easier to use) class.'),
+              this to get a simpler (and so easier to use) class.'),
     'R0902': ('Too many instance attributes (%s/%s)',
               'too-many-instance-attributes',
               'Used when class has too many instance attributes, try to reduce \
-              this to get a more simple (and so easier to use) class.'),
+              this to get a simpler (and so easier to use) class.'),
     'R0903': ('Too few public methods (%s/%s)',
               'too-few-public-methods',
               'Used when class has too few public methods, so be sure it\'s \
@@ -90,7 +90,7 @@ MSGS = {
     'R0904': ('Too many public methods (%s/%s)',
               'too-many-public-methods',
               'Used when class has too many public methods, try to reduce \
-              this to get a more simple (and so easier to use) class.'),
+              this to get a simpler (and so easier to use) class.'),
 
     'R0911': ('Too many return statements (%s/%s)',
               'too-many-return-statements',
@@ -134,7 +134,7 @@ class MisdesignChecker(BaseChecker):
     * size, complexity of functions, methods
     """
 
-    __implements__ = (IASTNGChecker,)
+    __implements__ = (IAstroidChecker,)
 
     # configuration section name
     name = 'design'
@@ -220,6 +220,7 @@ class MisdesignChecker(BaseChecker):
         self._abstracts = []
         self._ifaces = []
 
+    # Check 'R0921', 'R0922', 'R0923'
     def close(self):
         """check that abstract/interface classes are used"""
         for abstract in self._abstracts:
@@ -232,6 +233,7 @@ class MisdesignChecker(BaseChecker):
             if not iface in self._used_ifaces:
                 self.add_message('R0923', node=iface)
 
+    @check_messages('R0901', 'R0902', 'R0903', 'R0904', 'R0921', 'R0922', 'R0923')
     def visit_class(self, node):
         """check size of inheritance hierarchy and number of instance attributes
         """
@@ -269,6 +271,7 @@ class MisdesignChecker(BaseChecker):
             except KeyError:
                 self._used_abstracts[parent] = 1
 
+    @check_messages('R0901', 'R0902', 'R0903', 'R0904', 'R0921', 'R0922', 'R0923')
     def leave_class(self, node):
         """check number of public methods"""
         nb_public_methods = 0
@@ -299,6 +302,7 @@ class MisdesignChecker(BaseChecker):
                              args=(nb_public_methods,
                                    self.config.min_public_methods))
 
+    @check_messages('R0911', 'R0912', 'R0913', 'R0914', 'R0915')
     def visit_function(self, node):
         """check function name, docstring, arguments, redefinition,
         variable names, max locals
@@ -327,6 +331,7 @@ class MisdesignChecker(BaseChecker):
         # init statements counter
         self._stmts = 1
 
+    @check_messages('R0911', 'R0912', 'R0913', 'R0914', 'R0915')
     def leave_function(self, node):
         """most of the work is done here on close:
         checks for max returns, branch, return in __init__

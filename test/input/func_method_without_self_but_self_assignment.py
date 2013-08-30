@@ -4,9 +4,9 @@
 
 __revision__ = 1
 
-class Example:
+class Example(object):
     """bla"""
-    
+
     def __init__(self):
         pass
 

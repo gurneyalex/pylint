@@ -5,7 +5,7 @@ signature overriding
 
 def fetch_config(mainattr=None):
     """return a class method"""
-    
+
     def fetch_order(cls, attr, var):
         """a class method"""
         if attr == mainattr:
@@ -14,7 +14,7 @@ def fetch_config(mainattr=None):
     fetch_order = classmethod(fetch_order)
     return fetch_order
 
-class Aaa:
+class Aaa(object):
     """hop"""
     fetch_order = fetch_config('A')
 

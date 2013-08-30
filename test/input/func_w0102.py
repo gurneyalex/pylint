@@ -2,37 +2,37 @@
 """docstring"""
 __revision__ = ''
 
-class AAAA:
+class AAAA(object):
     """docstring"""
     def __init__(self):
         pass
     def method1(self):
         """docstring"""
-        
-    def method2(self):
-        """docstring"""
-        
+
     def method2(self):
         """docstring"""
 
-class AAAA:
+    def method2(self):
+        """docstring"""
+
+class AAAA(object):
     """docstring"""
     def __init__(self):
         pass
     def yeah(self):
         """hehehe"""
     def yoo(self):
-        """yoo""" 
+        """yoo"""
 def func1():
     """docstring"""
-    
+
 def func2():
     """docstring"""
-    
+
 def func2():
     """docstring"""
-    __revision__ = 1    
-    return __revision__ 
+    __revision__ = 1
+    return __revision__
 
 if __revision__:
     def exclusive_func():

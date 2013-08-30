@@ -3,13 +3,13 @@
 """
 __revision__ = 1
 
-class A3123:
+class A3123(object):
     """oypuee"""
     _protected = 1
     def __init__(self):
         pass
 
-    
+
     def cmeth(cls, val):
         """set protected member"""
         cls._protected = +val
@@ -21,4 +21,4 @@ class A3123:
         A3123._protected += val
 
     smeth = staticmethod(smeth)
-    
+

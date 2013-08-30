@@ -3,10 +3,10 @@
 """
 __revision__ = ''
 
-class BaseClass:
+class BaseClass(object):
     """A simple base class
     """
-    
+
     def __init__(self):
         self.base_var = {}
 

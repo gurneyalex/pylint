@@ -27,7 +27,6 @@ from logilab.common import testlib
 from pylint.testutils import (make_tests, LintTestUsingModule, LintTestUsingFile,
     cb_test_gen, linter, test_reporter)
 
-PY26 = sys.version_info >= (2, 6)
 PY3K = sys.version_info >= (3, 0)
 
 # Configure paths
@@ -36,9 +35,11 @@ MSG_DIR = join(dirname(abspath(__file__)), 'messages')
 
 # Classes
 
+quote = "'" if sys.version_info >= (3, 3) else ''
+
 class LintTestNonExistentModuleTC(LintTestUsingModule):
     module = 'nonexistent'
-    _get_expected = lambda self: 'F:  1: No module named nonexistent\n'
+    _get_expected = lambda self: 'F:  1: No module named %snonexistent%s\n' % (quote, quote)
     tags = testlib.Tags(('generated','pylint_input_%s' % module))
 
 class LintTestNonExistentFileTC(LintTestUsingFile):
@@ -61,17 +62,13 @@ class TestTests(testlib.TestCase):
                 continue
         todo.sort()
         if PY3K:
-            rest = ['E1122', 'I0001',
-                    # deprecated exec statement removed from py3k :
-                    'W0122',
+            rest = ['I0001',
                     # XXX : no use case for now :
                     'W0402', # deprecated module
                     'W0403', # implicit relative import
                     'W0410', # __future__ import not first statement
                     ]
             self.assertEqual(todo, rest)
-        elif PY26:
-            self.assertEqual(todo, ['E1122', 'I0001'])
         else:
             self.assertEqual(todo, ['I0001'])
 
@@ -125,6 +122,9 @@ MODULES_ONLY = False
 def suite():
     return testlib.TestSuite([unittest.makeSuite(test, suiteClass=testlib.TestSuite)
                               for test in gen_tests(FILTER_RGX)])
+
+del LintTestUsingModule
+del LintTestUsingFile
 
 if __name__=='__main__':
     if '-m' in sys.argv:
