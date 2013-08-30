@@ -15,7 +15,7 @@ def in_method(var):
     assert var
 
 DEFINED = {DEFINED:__revision__}
-DEFINED[__revision__] = OTHER = 'move this is astng test'
+DEFINED[__revision__] = OTHER = 'move this is astroid test'
 
 OTHER += '$'
 
@@ -28,7 +28,7 @@ def bad_default(var, default=unknown2):
     del vardel
 
 # Warning for Attribute access to undefinde attributes ?
-#class Attrs(object): 
+#class Attrs(object):
     #"""dummy class for wrong attribute access"""
 #AOU = Attrs()
 #AOU.number *= 1.3

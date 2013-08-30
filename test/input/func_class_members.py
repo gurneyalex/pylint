@@ -3,9 +3,9 @@
 
 __revision__ = ''
 
-class MyClass:
+class MyClass(object):
     """class docstring"""
-    
+
     def __init__(self):
         """init"""
         self.correct = 1
@@ -18,10 +18,10 @@ class MyClass:
         self.nonexistent1.truc()
         self.nonexistent2[1] = 'hehe'
 
-class XYZMixin:
-    """access to undefined members should be ignored in mixin classes by 
+class XYZMixin(object):
+    """access to undefined members should be ignored in mixin classes by
     default
-    """ 
+    """
     def __init__(self):
         print self.nonexistent
 

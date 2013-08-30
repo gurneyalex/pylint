@@ -1,3 +1,6 @@
+# Copyright (c) 2003-2013 LOGILAB S.A. (Paris, FRANCE).
+# http://www.logilab.fr/ -- mailto:contact@logilab.fr
+#
 # This program is free software; you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation; either version 2 of the License, or (at your option) any later
@@ -25,7 +28,8 @@ import tokenize
 from logilab.common.ureports import Table
 
 from pylint.interfaces import ITokenChecker
-from pylint.checkers import BaseTokenChecker, EmptyReport
+from pylint.utils import EmptyReport
+from pylint.checkers import BaseTokenChecker
 from pylint.reporters import diff_string
 
 def report_raw_stats(sect, stats, old_stats):
@@ -51,12 +55,12 @@ def report_raw_stats(sect, stats, old_stats):
 
 
 class RawMetricsChecker(BaseTokenChecker):
-    """does not check anything but gives some raw metrics :                    
-    * total number of lines                                                    
-    * total number of code lines                                               
-    * total number of docstring lines                                          
-    * total number of comments lines                                           
-    * total number of empty lines                                              
+    """does not check anything but gives some raw metrics :
+    * total number of lines
+    * total number of code lines
+    * total number of docstring lines
+    * total number of comments lines
+    * total number of empty lines
     """
 
     __implements__ = (ITokenChecker,)

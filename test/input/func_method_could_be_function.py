@@ -8,7 +8,7 @@ class Toto(object):
 
     def __init__(self):
         self.aaa = 2
-        
+
     def regular_method(self):
         """this method is a real method since it access to self"""
         self.function_method()
@@ -18,9 +18,9 @@ class Toto(object):
         print 'hello'
 
 
-class Base:
+class Base(object):
     """an abstract class"""
-    
+
     def __init__(self):
         self.aaa = 2
 
@@ -31,19 +31,19 @@ class Base:
 
 class Sub(Base):
     """a concret class"""
-    
+
     def check(self, arg):
         """a concret method, could not be a function since it need
         polymorphism benefits
         """
         return arg == 0
 
-class Super:
+class Super(object):
     """same as before without abstract"""
-    x = 1
+    attr = 1
     def method(self):
         """regular"""
-        print self.x
+        print self.attr
 
 class Sub1(Super):
     """override method with need for self"""

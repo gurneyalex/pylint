@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 LOGILAB S.A. (Paris, FRANCE).
+# Copyright (c) 2003-2013 LOGILAB S.A. (Paris, FRANCE).
 # This program is free software; you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation; either version 2 of the License, or (at your option) any later
@@ -28,7 +28,8 @@ from pylint.lint import PyLinter, Run, UnknownMessage, preprocess_options, \
      ArgumentPreprocessingError
 from pylint.utils import sort_msgs, PyLintASTWalker, MSG_STATE_SCOPE_CONFIG, \
      MSG_STATE_SCOPE_MODULE, tokenize_module
-
+from pylint.testutils import TestReporter
+from pylint.reporters import text
 from pylint import checkers
 
 class SortMessagesTC(TestCase):
@@ -42,12 +43,6 @@ class SortMessagesTC(TestCase):
                                          'I0001', 'I0201',
                                          'F0002', 'F0203',])
 
-try:
-    optimized = True
-    raise AssertionError
-except AssertionError:
-    optimized = False
-
 class GetNoteMessageTC(TestCase):
     def test(self):
         msg = None
@@ -55,8 +50,6 @@ class GetNoteMessageTC(TestCase):
             note_msg = config.get_note_message(note)
             self.assertNotEqual(msg, note_msg)
             msg = note_msg
-        if optimized:
-            self.assertRaises(AssertionError, config.get_note_message, 11)
 
 
 HERE = abspath(dirname(__file__))
@@ -88,6 +81,7 @@ class PyLinterTC(TestCase):
         self.linter.config.persistent = 0
         # register checkers
         checkers.initialize(self.linter)
+        self.linter.set_reporter(TestReporter())
 
     def test_message_help(self):
         msg = self.linter.get_message_help('F0001', checkerref=True)
@@ -153,12 +147,12 @@ class PyLinterTC(TestCase):
         linter.open()
         filepath = join(INPUTDIR, 'func_block_disable_msg.py')
         linter.set_current_module('func_block_disable_msg')
-        astng = linter.get_astng(filepath, 'func_block_disable_msg')
-        linter.process_tokens(tokenize_module(astng))
+        astroid = linter.get_astroid(filepath, 'func_block_disable_msg')
+        linter.process_tokens(tokenize_module(astroid))
         orig_state = linter._module_msgs_state.copy()
         linter._module_msgs_state = {}
         linter._suppression_mapping = {}
-        linter.collect_block_lines(astng, orig_state)
+        linter.collect_block_lines(astroid, orig_state)
         # global (module level)
         self.assertTrue(linter.is_message_enabled('W0613'))
         self.assertTrue(linter.is_message_enabled('E1101'))
@@ -244,9 +238,10 @@ class PyLinterTC(TestCase):
         finally:
             sys.stdout = sys.__stdout__
         # cursory examination of the output: we're mostly testing it completes
-        self.assertTrue(':C0112 (empty-docstring): *Empty docstring*' in output)
+        self.assertTrue(':C0112 (empty-docstring): *Empty %s docstring*' in output)
 
     def test_lint_ext_module_with_file_output(self):
+        self.linter.set_reporter(text.TextReporter())
         if sys.version_info < (3, 0):
             strio = 'StringIO'
         else:
@@ -272,6 +267,7 @@ class PyLinterTC(TestCase):
         self.assertEqual(self.linter.report_is_enabled('RP0001'), True)
 
     def test_report_output_format_aliased(self):
+        text.register(self.linter)
         self.linter.set_option('output-format', 'text')
         self.assertEqual(self.linter.reporter.__class__.__name__, 'TextReporter')
 
@@ -314,10 +310,10 @@ class PyLinterTC(TestCase):
         linter = self.linter
         self.linter.error_mode()
         checkers = self.linter.prepare_checkers()
-        checker_names = tuple(c.name for c in checkers)
-        should_not = ('design', 'format', 'imports', 'metrics',
-                      'miscellaneous', 'similarities')
-        self.assertFalse(any(name in checker_names for name in should_not))
+        checker_names = set(c.name for c in checkers)
+        should_not = set(('design', 'format', 'imports', 'metrics',
+                      'miscellaneous', 'similarities'))
+        self.assertSetEqual(set(), should_not & checker_names)
 
     def test_disable_similar(self):
         self.linter.set_option('disable', 'RP0801')
@@ -332,6 +328,16 @@ class PyLinterTC(TestCase):
         for cname in  ('design', 'metrics', 'similarities',
                        'imports'): # as a Fatal message that should be ignored
             self.assertFalse(cname in checker_names, cname)
+
+    def test_addmessage(self):
+        self.linter.set_reporter(TestReporter())
+        self.linter.open()
+        self.linter.set_current_module('0123')
+        self.linter.add_message('C0301', line=1, args=(1, 2))
+        self.linter.add_message('line-too-long', line=2, args=(3, 4))
+        self.assertEqual(
+            ['C:  1: Line too long (1/2)', 'C:  2: Line too long (3/4)'],
+            self.linter.reporter.messages)
 
 
 class ConfigTC(TestCase):

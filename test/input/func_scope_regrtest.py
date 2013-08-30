@@ -5,11 +5,11 @@ __revision__ = None
 
 class Well(object):
     """well"""
-    class Data: 
+    class Data(object):
         """base hidden class"""
     class Sub(Data):
         """whaou, is Data found???"""
-        yo = Data()
+        attr = Data()
     def func(self):
         """check Sub is not defined here"""
         return Sub(), self

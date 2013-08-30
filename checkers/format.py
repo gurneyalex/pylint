@@ -27,12 +27,12 @@ if not hasattr(tokenize, 'NL'):
     raise ValueError("tokenize.NL doesn't exist -- tokenize module too old")
 
 from logilab.common.textutils import pretty_match
-from logilab.astng import nodes
+from astroid import nodes
 
-from pylint.interfaces import ITokenChecker, IASTNGChecker
+from pylint.interfaces import ITokenChecker, IAstroidChecker
 from pylint.checkers import BaseTokenChecker
 from pylint.checkers.utils import check_messages
-from pylint.utils import WarningScope
+from pylint.utils import WarningScope, OPTION_RGX
 
 MSGS = {
     'C0301': ('Line too long (%s/%s)',
@@ -42,7 +42,13 @@ MSGS = {
               'too-many-lines',
               'Used when a module has too much lines, reducing its readability.'
               ),
-
+    'C0303': ('Trailing whitespace',
+              'trailing-whitespace',
+              'Used when there is whitespace between the end of a line and the '
+              'newline.'),
+    'C0304': ('Final newline missing',
+              'missing-final-newline',
+              'Used when the last line in a file is missing a newline.'),
     'W0311': ('Bad indentation. Found %s %s, expected %s',
               'bad-indentation',
               'Used when an unexpected number of indentation\'s tabulations or '
@@ -171,7 +177,7 @@ class FormatChecker(BaseTokenChecker):
     * use of <> instead of !=
     """
 
-    __implements__ = (ITokenChecker, IASTNGChecker)
+    __implements__ = (ITokenChecker, IAstroidChecker)
 
     # configuration section name
     name = 'format'
@@ -182,6 +188,11 @@ class FormatChecker(BaseTokenChecker):
     options = (('max-line-length',
                 {'default' : 80, 'type' : "int", 'metavar' : '<int>',
                  'help' : 'Maximum number of characters on a single line.'}),
+               ('ignore-long-lines',
+                {'type': 'regexp', 'metavar': '<regexp>',
+                 'default': r'^\s*(# )?<?https?://\S+>?$',
+                 'help': ('Regexp for a line that is allowed to be longer than '
+                          'the limit.')}),
                ('max-module-lines',
                 {'default' : 1000, 'type' : 'int', 'metavar' : '<int>',
                  'help': 'Maximum number of lines in a module'}
@@ -221,13 +232,24 @@ class FormatChecker(BaseTokenChecker):
         previous = None
         self._lines = {}
         self._visited_lines = {}
+        new_line_delay = False
         for (tok_type, token, start, _, line) in tokens:
+            if new_line_delay:
+                new_line_delay = False
+                self.new_line(tok_type, line, line_num, junk)
             if start[0] != line_num:
                 if previous is not None and previous[0] == tokenize.OP and previous[1] == ';':
                     self.add_message('W0301', line=previous[2])
                 previous = None
                 line_num = start[0]
-                self.new_line(tok_type, line, line_num, junk)
+                # A tokenizer oddity: if an indented line contains a multi-line
+                # docstring, the line member of the INDENT token does not contain
+                # the full line; therefore we delay checking the new line until
+                # the next token.
+                if tok_type == tokenize.INDENT:
+                    new_line_delay = True
+                else:
+                    self.new_line(tok_type, line, line_num, junk)
             if tok_type not in (indent, dedent, newline) + junk:
                 previous = tok_type, token, start[0]
 
@@ -326,8 +348,22 @@ class FormatChecker(BaseTokenChecker):
         """check lines have less than a maximum number of characters
         """
         max_chars = self.config.max_line_length
-        for line in lines.splitlines():
-            if len(line) > max_chars:
+        ignore_long_line = self.config.ignore_long_lines
+
+        for line in lines.splitlines(True):
+            if not line.endswith('\n'):
+                self.add_message('C0304', line=i)
+            else:
+                stripped_line = line.rstrip()
+                if line != stripped_line + '\n':
+                    self.add_message('C0303', line=i)
+                # Don't count excess whitespace in the line length.
+                line = stripped_line
+            mobj = OPTION_RGX.search(line)
+            if mobj and mobj.group(1).split('=', 1)[0].strip() == 'disable':
+                line = line.split('#')[0].rstrip()
+
+            if len(line) > max_chars and not ignore_long_line.search(line):
                 self.add_message('C0301', line=i, args=(len(line), max_chars))
             i += 1
 
