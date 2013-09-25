@@ -26,12 +26,27 @@ from logilab.common.compat import reload
 from pylint import config
 from pylint.lint import PyLinter, Run, UnknownMessage, preprocess_options, \
      ArgumentPreprocessingError
-from pylint.utils import MSG_STATE_SCOPE_CONFIG, MSG_STATE_SCOPE_MODULE, \
-    PyLintASTWalker, MessageDefinition, build_message_def, tokenize_module
+from pylint.utils import sort_msgs, PyLintASTWalker, MSG_STATE_SCOPE_CONFIG, \
+     MSG_STATE_SCOPE_MODULE, tokenize_module
 from pylint.testutils import TestReporter
 from pylint.reporters import text
 from pylint import checkers
 
+if sys.platform == 'win32':
+     HOME = 'USERPROFILE'
+else:
+     HOME = 'HOME'
+
+class SortMessagesTC(TestCase):
+
+    def test(self):
+        l = ['E0501', 'E0503', 'F0002', 'I0201', 'W0540',
+             'R0202', 'F0203', 'R0220', 'W0321', 'I0001']
+        self.assertEqual(sort_msgs(l), ['E0501', 'E0503',
+                                         'W0321', 'W0540',
+                                         'R0202', 'R0220',
+                                         'I0001', 'I0201',
+                                         'F0002', 'F0203',])
 
 class GetNoteMessageTC(TestCase):
     def test(self):
@@ -73,40 +88,11 @@ class PyLinterTC(TestCase):
         checkers.initialize(self.linter)
         self.linter.set_reporter(TestReporter())
 
-    def test_check_message_id(self):
-        self.assertIsInstance(self.linter.check_message_id('F0001'),
-                              MessageDefinition)
-        self.assertRaises(UnknownMessage,
-                          self.linter.check_message_id, 'YB12')
-
     def test_message_help(self):
-        msg = self.linter.check_message_id('F0001')
-        self.assertMultiLineEqual(
-            ''':F0001 (fatal):
-  Used when an error occurred preventing the analysis of a module (unable to
-  find it for instance). This message belongs to the master checker.''',
-            msg.format_help(checkerref=True))
-        self.assertMultiLineEqual(
-            ''':F0001 (fatal):
-  Used when an error occurred preventing the analysis of a module (unable to
-  find it for instance).''',
-            msg.format_help(checkerref=False))
-
-    def test_message_help_minmax(self):
-        # build the message manually to be python version independant
-        msg = build_message_def(self.linter._checkers['typecheck'][0],
-                                'E1122', checkers.typecheck.MSGS['E1122'])
-        self.assertMultiLineEqual(
-            ''':E1122 (duplicate-keyword-arg): *Duplicate keyword argument %r in function call*
-  Used when a function call passes the same keyword argument multiple times.
-  This message belongs to the typecheck checker. It can't be emitted when using
-  Python >= 2.6.''',
-            msg.format_help(checkerref=True))
-        self.assertMultiLineEqual(
-            ''':E1122 (duplicate-keyword-arg): *Duplicate keyword argument %r in function call*
-  Used when a function call passes the same keyword argument multiple times.
-  This message can't be emitted when using Python >= 2.6.''',
-            msg.format_help(checkerref=False))
+        msg = self.linter.get_message_help('F0001', checkerref=True)
+        expected = ':F0001 (fatal):\n  Used when an error occurred preventing the analysis of a module (unable to\n  find it for instance). This message belongs to the master checker.'
+        self.assertMultiLineEqual(msg, expected)
+        self.assertRaises(UnknownMessage, self.linter.get_message_help, 'YB12')
 
     def test_enable_message(self):
         linter = self.linter
@@ -388,9 +374,9 @@ class ConfigTC(TestCase):
 
     def test_pylintrc(self):
         fake_home = tempfile.mkdtemp('fake-home')
-        home = os.environ['HOME']
+        home = os.environ[HOME]
         try:
-            os.environ['HOME'] = fake_home
+            os.environ[HOME] = fake_home
             self.assertEqual(config.find_pylintrc(), None)
             os.environ['PYLINTRC'] = join(tempfile.gettempdir(), '.pylintrc')
             self.assertEqual(config.find_pylintrc(), None)
@@ -398,7 +384,7 @@ class ConfigTC(TestCase):
             self.assertEqual(config.find_pylintrc(), None)
         finally:
             os.environ.pop('PYLINTRC', '')
-            os.environ['HOME'] = home
+            os.environ[HOME] = home
             rmtree(fake_home, ignore_errors=True)
             reload(config)
 
@@ -416,12 +402,12 @@ class ConfigTC(TestCase):
                           'a/b/c/__init__.py', 'a/b/c/d/__init__.py'], chroot)
             os.chdir(chroot)
             fake_home = tempfile.mkdtemp('fake-home')
-            home = os.environ['HOME']
+            home = os.environ[HOME]
             try:
-                os.environ['HOME'] = fake_home
+                os.environ[HOME] = fake_home
                 self.assertEqual(config.find_pylintrc(), None)
             finally:
-                os.environ['HOME'] = home
+                os.environ[HOME] = home
                 os.rmdir(fake_home)
             results = {'a'       : join(chroot, 'a', 'pylintrc'),
                        'a/b'     : join(chroot, 'a', 'b', 'pylintrc'),
@@ -446,8 +432,8 @@ class ConfigTC(TestCase):
         chdir(cdir)
 
         fake_home = tempfile.mkdtemp('fake-home')
-        home = os.environ['HOME']
-        os.environ['HOME'] = fake_home
+        home = os.environ[HOME]
+        os.environ[HOME] = fake_home
         try:
             create_files(['a/pylintrc', 'a/b/pylintrc', 'a/b/c/d/__init__.py'], chroot)
             os.chdir(chroot)
@@ -461,7 +447,7 @@ class ConfigTC(TestCase):
                 os.chdir(join(chroot, basedir))
                 self.assertEqual(config.find_pylintrc(), expected)
         finally:
-            os.environ['HOME'] = home
+            os.environ[HOME] = home
             rmtree(fake_home, ignore_errors=True)
             os.chdir(HERE)
             rmtree(chroot)
