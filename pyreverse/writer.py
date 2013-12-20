@@ -44,28 +44,31 @@ class DiagramWriter(object):
 
     def write_packages(self, diagram):
         """write a package diagram"""
-        for obj in diagram.modules():
-            label = self.get_title(obj)
-            self.printer.emit_node(obj.fig_id, label=label, shape='box')
+        # sorted to get predictable (hence testable) results
+        for i, obj in enumerate(sorted(diagram.modules(), key=lambda x: x.title)):
+            self.printer.emit_node(i, label=self.get_title(obj), shape='box')
+            obj.fig_id = i
         # package dependencies
-        for rel in diagram.relationships.get('depends', ()):
+        for rel in diagram.get_relationships('depends'):
             self.printer.emit_edge(rel.from_object.fig_id, rel.to_object.fig_id,
                               **self.pkg_edges)
 
     def write_classes(self, diagram):
         """write a class diagram"""
-        for obj in diagram.objects:
-            self.printer.emit_node(obj.fig_id, **self.get_values(obj) )
+        # sorted to get predictable (hence testable) results
+        for i, obj in enumerate(sorted(diagram.objects, key=lambda x: x.title)):
+            self.printer.emit_node(i, **self.get_values(obj) )
+            obj.fig_id = i
         # inheritance links
-        for rel in diagram.relationships.get('specialization', ()):
+        for rel in diagram.get_relationships('specialization'):
             self.printer.emit_edge(rel.from_object.fig_id, rel.to_object.fig_id,
                               **self.inh_edges)
         # implementation links
-        for rel in diagram.relationships.get('implements', ()):
+        for rel in diagram.get_relationships('implements'):
             self.printer.emit_edge(rel.from_object.fig_id, rel.to_object.fig_id,
                               **self.imp_edges)
         # generate associations
-        for rel in diagram.relationships.get('association', ()):
+        for rel in diagram.get_relationships('association'):
             self.printer.emit_edge(rel.from_object.fig_id, rel.to_object.fig_id,
                               label=rel.name, **self.ass_edges)
 
@@ -114,7 +117,7 @@ class DotWriter(DiagramWriter):
 
         The label contains all attributes and methods
         """
-        label =  obj.title
+        label = obj.title
         if obj.shape == 'interface':
             label = u"«interface»\\n%s" % label
         if not self.config.only_classnames:

@@ -125,5 +125,3 @@ Other useful global options include:
 --list-msgs                Generate pylint's messages.
 --full-documentation       Generate pylint's full documentation, in reST 
                              format.
-
-

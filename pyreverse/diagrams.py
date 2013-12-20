@@ -1,4 +1,4 @@
-# Copyright (c) 2004-2012 LOGILAB S.A. (Paris, FRANCE).
+# Copyright (c) 2004-2013 LOGILAB S.A. (Paris, FRANCE).
 # http://www.logilab.fr/ -- mailto:contact@logilab.fr
 #
 # This program is free software; you can redistribute it and/or modify it under
@@ -19,16 +19,8 @@
 import astroid
 from pylint.pyreverse.utils import is_interface, FilterMixIn
 
-def set_counter(value):
-    """Figure counter (re)set"""
-    Figure._UID_COUNT = value
-
-class Figure:
+class Figure(object):
     """base class for counter handling"""
-    _UID_COUNT = 0
-    def __init__(self):
-        Figure._UID_COUNT += 1
-        self.fig_id = Figure._UID_COUNT
 
 class Relationship(Figure):
     """a relation ship from an object in the diagram to another
@@ -61,6 +53,11 @@ class ClassDiagram(Figure, FilterMixIn):
         self.relationships = {}
         self._nodes = {}
         self.depends = []
+
+    def get_relationships(self, role):
+        # sorted to get predictable (hence testable) results
+        return sorted(self.relationships.get(role, ()),
+                      key=lambda x: (x.from_object.fig_id, x.to_object.fig_id))
 
     def add_relationship(self, from_object, to_object,
                          relation_type, name=None):
