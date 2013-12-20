@@ -86,12 +86,12 @@ class PyLinterTC(TestCase):
     def test_message_help(self):
         msg = self.linter.check_message_id('F0001')
         self.assertMultiLineEqual(
-            ''':F0001 (fatal):
+            ''':fatal (F0001):
   Used when an error occurred preventing the analysis of a module (unable to
   find it for instance). This message belongs to the master checker.''',
             msg.format_help(checkerref=True))
         self.assertMultiLineEqual(
-            ''':F0001 (fatal):
+            ''':fatal (F0001):
   Used when an error occurred preventing the analysis of a module (unable to
   find it for instance).''',
             msg.format_help(checkerref=False))
@@ -101,13 +101,13 @@ class PyLinterTC(TestCase):
         msg = build_message_def(self.linter._checkers['typecheck'][0],
                                 'E1122', checkers.typecheck.MSGS['E1122'])
         self.assertMultiLineEqual(
-            ''':E1122 (duplicate-keyword-arg): *Duplicate keyword argument %r in function call*
+            ''':duplicate-keyword-arg (E1122): *Duplicate keyword argument %r in function call*
   Used when a function call passes the same keyword argument multiple times.
   This message belongs to the typecheck checker. It can't be emitted when using
   Python >= 2.6.''',
             msg.format_help(checkerref=True))
         self.assertMultiLineEqual(
-            ''':E1122 (duplicate-keyword-arg): *Duplicate keyword argument %r in function call*
+            ''':duplicate-keyword-arg (E1122): *Duplicate keyword argument %r in function call*
   Used when a function call passes the same keyword argument multiple times.
   This message can't be emitted when using Python >= 2.6.''',
             msg.format_help(checkerref=False))
@@ -170,7 +170,7 @@ class PyLinterTC(TestCase):
         linter.open()
         filepath = join(INPUTDIR, 'func_block_disable_msg.py')
         linter.set_current_module('func_block_disable_msg')
-        astroid = linter.get_astroid(filepath, 'func_block_disable_msg')
+        astroid = linter.get_ast(filepath, 'func_block_disable_msg')
         linter.process_tokens(tokenize_module(astroid))
         orig_state = linter._module_msgs_state.copy()
         linter._module_msgs_state = {}
@@ -214,7 +214,7 @@ class PyLinterTC(TestCase):
 
         self.assertEqual(17, linter._suppression_mapping['W0613', 18])
         self.assertEqual(30, linter._suppression_mapping['E1101', 33])
-        self.assert_(('E1101', 46) not in linter._suppression_mapping)
+        self.assertTrue(('E1101', 46) not in linter._suppression_mapping)
         self.assertEqual(1, linter._suppression_mapping['C0302', 18])
         self.assertEqual(1, linter._suppression_mapping['C0302', 50])
         # This is tricky. While the disable in line 106 is disabling
@@ -261,7 +261,7 @@ class PyLinterTC(TestCase):
         finally:
             sys.stdout = sys.__stdout__
         # cursory examination of the output: we're mostly testing it completes
-        self.assertTrue(':C0112 (empty-docstring): *Empty %s docstring*' in output)
+        self.assertIn(':empty-docstring (C0112): *Empty %s docstring*', output)
 
     def test_lint_ext_module_with_file_output(self):
         self.linter.set_reporter(text.TextReporter())
@@ -281,6 +281,13 @@ class PyLinterTC(TestCase):
                 os.remove('pylint_global.txt')
             except:
                 pass
+
+    def test_lint_should_analyze_file(self):
+        self.linter.set_reporter(text.TextReporter())
+        self.linter.config.files_output = True
+        self.linter.should_analyze_file = lambda *args: False
+        self.linter.check('os')
+        self.assertFalse(os.path.exists('pylint_os.txt'))
 
     def test_enable_report(self):
         self.assertEqual(self.linter.report_is_enabled('RP0001'), True)
@@ -362,6 +369,23 @@ class PyLinterTC(TestCase):
             ['C:  1: Line too long (1/2)', 'C:  2: Line too long (3/4)'],
             self.linter.reporter.messages)
 
+    def test_add_renamed_message(self):
+        self.linter.add_renamed_message('C9999', 'old-bad-name', 'invalid-name')
+        self.assertEqual('invalid-name', 
+                         self.linter.check_message_id('C9999').symbol)
+        self.assertEqual('invalid-name', 
+                         self.linter.check_message_id('old-bad-name').symbol)
+
+    def test_renamed_message_register(self):
+         class Checker(object):
+              msgs = {'W1234': ('message', 'msg-symbol', 'msg-description',
+                                {'old_names': [('W0001', 'old-symbol')]})}
+         self.linter.register_messages(Checker())
+         self.assertEqual('msg-symbol', 
+                          self.linter.check_message_id('W0001').symbol)
+         self.assertEqual('msg-symbol', 
+                          self.linter.check_message_id('old-symbol').symbol)
+         
 
 class ConfigTC(TestCase):
 
