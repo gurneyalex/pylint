@@ -16,11 +16,20 @@
 import sys
 from cgi import escape
 
+import string #To parse formatter
+
 from logilab.common.ureports import HTMLWriter, Section, Table
 
 from pylint.interfaces import IReporter
 from pylint.reporters import BaseReporter, Message
 
+#self.linter.config.msg_template or self.line_format
+#line_format = '{C}:{line:3d},{column:2d}: {msg} ({symbol})'
+#Default
+#     self.msgs += (msg.category, msg.module, msg.obj,
+#                   str(msg.line), str(msg.column), escape(msg.msg))
+#Header
+#     msgs = ['type', 'module', 'object', 'line', 'col_offset', 'message']
 
 class HTMLReporter(BaseReporter):
     """report messages and layouts in HTML"""
@@ -32,12 +41,52 @@ class HTMLReporter(BaseReporter):
     def __init__(self, output=sys.stdout):
         BaseReporter.__init__(self, output)
         self.msgs = []
+        #Add placeholders for title and parsed messages
+        self.header = None
+        self.msgargs = []
+
+    def _parse_template(self):
+        """Helper function to parse the message template"""
+        self.header = []
+        if self.linter.config.msg_template:
+            msg_template = self.linter.config.msg_template
+        else:
+            msg_template = '{category}{module}{obj}{line}{column}{msg}'
+
+        #Parse the message template
+        str_formatter = string.Formatter()
+        parsed_str = str_formatter.parse(msg_template)
+
+        for item in parsed_str:
+            if item[1]:
+                self.header.append(item[1])
+                self.msgargs.append(item[1])
 
     def add_message(self, msg_id, location, msg):
         """manage message of different type and in the context of path"""
         msg = Message(self, msg_id, location, msg)
-        self.msgs += (msg.category, msg.module, msg.obj,
-                      str(msg.line), str(msg.column), escape(msg.msg))
+        #self.msgs += (msg.category, msg.module, msg.obj,
+        #              str(msg.line), str(msg.column), escape(msg.msg))
+
+        #It would be better to do this in init, but currently we do not
+        #have access to the linter (as it is setup in lint.set_reporter()
+        #Therfore we try to parse just the once.
+        if self.header is None:
+            self._parse_template()
+
+        #We want to add the lines given by the template
+        thismsg = [str(msg.__dict__.get(x, None)) for x in self.msgargs]
+
+        #We could escape the msg column however it doesnt seem
+        #to make a difference
+        # thismsg = []
+        # for item in self.msgargs:
+        #     if item == "msg":
+        #         thismsg.append(str(msg.__dict__.get(item, None)))
+        #     else:
+        #         thismsg.append(str(msg.__dict__.get(item, None)))
+
+        self.msgs += thismsg
 
     def set_output(self, output=None):
         """set output stream
@@ -54,13 +103,15 @@ class HTMLReporter(BaseReporter):
         (in add_message, message is not displayed, just collected so it
         can be displayed in an html table)
         """
+
         if self.msgs:
             # add stored messages to the layout
-            msgs = ['type', 'module', 'object', 'line', 'col_offset', 'message']
+            msgs = self.header
+            cols = len(self.header)
             msgs += self.msgs
             sect = Section('Messages')
             layout.append(sect)
-            sect.append(Table(cols=6, children=msgs, rheaders=1))
+            sect.append(Table(cols=cols, children=msgs, rheaders=1))
             self.msgs = []
         HTMLWriter().format(layout, self.out)
 
