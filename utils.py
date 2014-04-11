@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 """some various utilities and helper classes, most of them used in the
 main pylint class
 """
@@ -247,7 +247,7 @@ class MessagesHandlerMixIn(object):
                 self._alternative_names[old_symbol] = msg
             self._msgs_by_category.setdefault(msg.msgid[0], []).append(msg.msgid)
 
-    def disable(self, msgid, scope='package', line=None):
+    def disable(self, msgid, scope='package', line=None, ignore_unknown=False):
         """don't output message of the given id"""
         assert scope in ('package', 'module')
         # handle disable=all by disabling all categories
@@ -272,8 +272,15 @@ class MessagesHandlerMixIn(object):
         if msgid.lower().startswith('rp'):
             self.disable_report(msgid)
             return
-        # msgid is a symbolic or numeric msgid.
-        msg = self.check_message_id(msgid)
+
+        try:
+            # msgid is a symbolic or numeric msgid.
+            msg = self.check_message_id(msgid)
+        except UnknownMessage:
+            if ignore_unknown:
+                return
+            raise
+
         if scope == 'module':
             assert line > 0
             try:
@@ -290,7 +297,7 @@ class MessagesHandlerMixIn(object):
             self.config.disable_msg = [mid for mid, val in msgs.iteritems()
                                        if not val]
 
-    def enable(self, msgid, scope='package', line=None):
+    def enable(self, msgid, scope='package', line=None, ignore_unknown=False):
         """reenable message of the given id"""
         assert scope in ('package', 'module')
         catid = category_id(msgid)
@@ -309,8 +316,15 @@ class MessagesHandlerMixIn(object):
         if msgid.lower().startswith('rp'):
             self.enable_report(msgid)
             return
-        # msgid is a symbolic or numeric msgid.
-        msg = self.check_message_id(msgid)
+
+        try:
+            # msgid is a symbolic or numeric msgid.
+            msg = self.check_message_id(msgid)
+        except UnknownMessage:
+            if ignore_unknown:
+                return
+            raise
+
         if scope == 'module':
             assert line > 0
             try:
