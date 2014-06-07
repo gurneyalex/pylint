@@ -20,6 +20,7 @@
 
 import sys
 import tokenize
+import string
 
 import astroid
 
@@ -29,6 +30,8 @@ from pylint.checkers import utils
 from pylint.checkers.utils import check_messages
 
 _PY3K = sys.version_info >= (3, 0)
+_PY26 = sys.version_info == (2, 7)
+_GT_PY25 = sys.version_info > (2, 5)
 
 MSGS = {
     'E1300': ("Unsupported format character %r (%#02x) at index %d",
@@ -41,8 +44,10 @@ MSGS = {
               conversion specifier."),
     'E1302': ("Mixing named and unnamed conversion specifiers in format string",
               "mixed-format-string",
-              "Used when a format string contains both named (e.g. '%(foo)d') \
-              and unnamed (e.g. '%d') conversion specifiers.  This is also \
+              "Used when a format string contains both named (e.g. '%(foo)d' \
+              or '{foo}' for Python 3 format string) \
+              and unnamed (e.g. '%d' or '{}' for Python 3 format string) \
+              conversion specifiers.  This is also \
               used when a named conversion specifier contains * for the \
               minimum field width and/or precision."),
     'E1303': ("Expected mapping for format string, not %s",
@@ -71,11 +76,94 @@ MSGS = {
               "too-few-format-args",
               "Used when a format string that uses unnamed conversion \
               specifiers is given too few arguments"),
+
+    'E1307': ("Invalid Python 3 format string",
+              "bad-format-string",
+              "Used when a Python 3 format string is invalid"),
+    'E1308': ("Missing keyword argument %r for format string",
+              "missing-format-argument-key",
+              "Used when a Python 3 format string that uses named specifiers \
+               doesn't receive one or more required keywords."),
+    'W1302': ("Unused format argument %r",
+              "unused-format-string-argument",
+              "Used when a Python 3 format string that uses named \
+               conversion specifiers is used with an argument that \
+               is not required by the format string."),
+
+    'W1303': ("Format string contains both automatic field numbering "
+              "and manual field specifiers",
+              "format-combined-specifiers",
+              "Usen when a format string contains both automatic \
+               field numbering (e.g. '{}') and manual field \
+               specification (e.g. '{0}')"),
+    'W1304': ("Can't use automatic field numbering for this version",
+              "no-automatic-field-numbering",
+              "Usen for Python versions lower than 2.7 when a "
+              "format string is used with automatic field numbering " 
+              "(e.g. '{}'). Only manual field numbering (e.g. '{0}') "
+              "or named fields (e.g. '{a}') can work.",
+              {'maxversion': (2, 6)}),
+                            
     }
 
 OTHER_NODES = (astroid.Const, astroid.List, astroid.Backquote,
                astroid.Lambda, astroid.Function,
                astroid.ListComp, astroid.SetComp, astroid.GenExpr)
+
+if _PY3K:
+    import _string
+
+    def split_format_field_names(format_string):
+        return _string.formatter_field_name_split(format_string)
+else:
+    def split_format_field_names(format_string):
+        return format_string._formatter_field_name_split()
+
+def parse_format_method_string(format_string):
+    """
+    Parses a Python 3 format string, returning a tuple of 
+    (keys, num_args), 
+    where keys is the set of mapping keys in the format string, num_args 
+    is the number of arguments required by the format string and accessors
+    is a dictionary of attribute accessors like '{a.field}' or element 
+    accessor, like '{0[2]}'. 
+    """
+    keys = []
+    num_args = 0
+    formatter = string.Formatter()
+    parseiterator = formatter.parse(format_string)    
+    try:
+        for result in parseiterator:
+            if all(item is None for item in result[1:]):
+                # not a replacement format
+                continue
+            name = result[1]
+            if name:
+                keyname, fielditerator = split_format_field_names(name)
+                keys.append((keyname, list(fielditerator)))
+            else:
+                num_args += 1
+    except ValueError:
+        # probably the format string is invalid
+        # should we check the argument of the ValueError?
+        raise utils.IncompleteFormatString(format_string)
+    return keys, num_args
+
+def get_args(callfunc):
+    """ Get the arguments from the given `CallFunc` node.
+    Return a tuple, where the first element is the
+    number of positional arguments and the second element
+    is the keyword arguments in a dict
+    """
+    positional = 0
+    named = {}
+ 
+    for arg in callfunc.args:
+        if isinstance(arg, astroid.Keyword):
+            named[arg.arg] = utils.safe_infer(arg.value)
+        else:
+            positional += 1
+    return positional, named
 
 class StringFormatChecker(BaseChecker):
     """Checks string formatting operations to ensure that the format string
@@ -182,16 +270,67 @@ class StringMethodsChecker(BaseChecker):
         func = utils.safe_infer(node.func)
         if (isinstance(func, astroid.BoundMethod)
             and isinstance(func.bound, astroid.Instance)
-            and func.bound.name in ('str', 'unicode', 'bytes')
-            and func.name in ('strip', 'lstrip', 'rstrip')
-            and node.args):
-            arg = utils.safe_infer(node.args[0])
-            if not isinstance(arg, astroid.Const):
-                return
-            if len(arg.value) != len(set(arg.value)):
-                self.add_message('bad-str-strip-call', node=node,
-                                 args=(func.bound.name, func.name))
+            and func.bound.name in ('str', 'unicode', 'bytes')):
 
+             if func.name in ('strip', 'lstrip', 'rstrip') and node.args:
+                 arg = utils.safe_infer(node.args[0])
+                 if not isinstance(arg, astroid.Const):
+                     return
+                 if len(arg.value) != len(set(arg.value)):
+                     self.add_message('bad-str-strip-call', node=node,
+                                      args=(func.bound.name, func.name))
+             elif func.name == 'format':
+                 if _GT_PY25: 
+                     self._parse_format(node, func)
+
+    def _parse_format(self, node, func):
+        try:
+            strnode = func.bound.infer().next()
+        except astroid.InferenceError:
+            return
+
+        try:
+            positional, named = get_args(node)
+        except astroid.InferenceError:
+            return
+
+        try:
+            required_keys, required_num_args = \
+                     parse_format_method_string(strnode.value)
+        except utils.IncompleteFormatString:
+            self.add_message('bad-format-string', node=node)
+            return
+
+        manual_keys = set([key for key in required_keys
+                           if key.isdigit()])
+        if manual_keys and required_num_args:
+            self.add_message('format-combined-specifiers',
+                             node=node)
+            return
+
+        if _PY26 and required_num_args:
+            self.add_message('no-automatic-field-numbering',
+                             node=node)
+
+        if required_keys:
+            for key in required_keys:
+                if key not in named and not key.isdigit():
+                    self.add_message('missing-format-argument-key', 
+                                     node=node,
+                                     args=(key, ))
+            for key in named:
+                if key not in required_keys:
+                    self.add_message('unused-format-string-argument',
+                                     node=node,
+                                     args=(key, ))                 
+        else:
+            if positional > required_num_args:
+                self.add_message('too-many-format-args', node=node)
+            elif positional < required_num_args:
+                self.add_message('too-few-format-args', node=node)  
+   
+        if manual_keys and positional < len(manual_keys):
+            self.add_message('too-few-format-args', node=node)       
 
 class StringConstantChecker(BaseTokenChecker):
     """Check string literals"""
