@@ -170,7 +170,7 @@ MSGS = {
               'global-at-module-level',
               'Used when you use the "global" statement at the module level \
               since it has no effect'),
-    'W0611': ('Unused import %s',
+    'W0611': ('Unused %s',
               'unused-import',
               'Used when an imported module or variable is not used.'),
     'W0612': ('Unused variable %r',
@@ -319,14 +319,28 @@ builtins. Remember that you should avoid to define new builtins when possible.'
                    and isinstance(stmt.ass_type(), astroid.AugAssign)
                    for stmt in stmts):
                 continue
-            stmt = stmts[0]
-            if isinstance(stmt, astroid.Import):
-                self.add_message('unused-import', args=name, node=stmt)
-            elif isinstance(stmt, astroid.From) and stmt.modname != '__future__':
-                if stmt.names[0][0] == '*':
-                    self.add_message('unused-wildcard-import', args=name, node=stmt)
-                else:
-                    self.add_message('unused-import', args=name, node=stmt)
+            for stmt in stmts:
+                if not isinstance(stmt, astroid.Import) and not isinstance(stmt, astroid.From):
+                    continue
+
+                imported_name = stmt.names[0][0]  # this is: 'import imported_name' or 'from something import imported_name'
+                as_name = stmt.names[0][1]        # this is: 'import imported_name as as_name'
+
+                if isinstance(stmt, astroid.Import):
+                    if as_name is None:
+                        msg = "import %s" % imported_name
+                    else:
+                        msg = "%s imported as %s" % (imported_name, as_name)
+                    self.add_message('unused-import', args=msg, node=stmt)
+                elif isinstance(stmt, astroid.From) and stmt.modname != '__future__':
+                    if imported_name == '*':
+                        self.add_message('unused-wildcard-import', args=name, node=stmt)
+                    else:
+                        if as_name is None:
+                            msg = "%s imported from %s" % (imported_name, stmt.modname)
+                        else:
+                            msg = "%s imported from %s as %s" % (imported_name, stmt.modname, as_name)
+                        self.add_message('unused-import', args=msg, node=stmt)
         del self._to_consume
 
     def visit_class(self, node):
