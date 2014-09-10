@@ -20,6 +20,9 @@ from pylint import interfaces
 from pylint.checkers import utils
 from pylint.checkers.utils import check_messages
 
+import six
+
+
 MSGS = {
     'W1201': ('Specify string format arguments as logging function parameters',
               'logging-not-lazy',
@@ -32,14 +35,14 @@ MSGS = {
               'interpolation in those cases in which no message will be '
               'logged. For more, see '
               'http://www.python.org/dev/peps/pep-0282/.'),
-   'W1202': ('Use % formatting in logging functions but pass the % parameters '
-              'as arguments',
-              'logging-format-interpolation',
-              'Used when a logging statement has a call form of '
-              '"logging.<logging method>(format_string.format(format_args...))"'
-              '. Such calls should use % formatting instead, but leave '
-              'interpolation to the logging function by passing the parameters '
-              'as arguments.'),
+   'W1202': ('Use % formatting in logging functions but pass the % '
+             'parameters as arguments',
+             'logging-format-interpolation',
+             'Used when a logging statement has a call form of '
+             '"logging.<logging method>(format_string.format(format_args...))"'
+             '. Such calls should use % formatting instead, but leave '
+             'interpolation to the logging function by passing the parameters '
+             'as arguments.'),
     'E1200': ('Unsupported logging format character %r (%#02x) at index %d',
               'logging-unsupported-format',
               'Used when an unsupported format character is used in a logging\
@@ -205,7 +208,7 @@ class LoggingChecker(checkers.BaseChecker):
             # don't check any further.
             return
         format_string = node.args[format_arg].value
-        if not isinstance(format_string, basestring):
+        if not isinstance(format_string, six.string_types):
             # If the log format is constant non-string (e.g. logging.debug(5)),
             # ensure there are no arguments.
             required_num_args = 0
@@ -217,7 +220,7 @@ class LoggingChecker(checkers.BaseChecker):
                     # Keyword checking on logging strings is complicated by
                     # special keywords - out of scope.
                     return
-            except utils.UnsupportedFormatCharacter, ex:
+            except utils.UnsupportedFormatCharacter as ex:
                 char = format_string[ex.index]
                 self.add_message('logging-unsupported-format', node=node,
                                  args=(char, ord(char), ex.index))
