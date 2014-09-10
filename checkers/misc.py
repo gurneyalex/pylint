@@ -21,6 +21,7 @@ import re
 
 from pylint.interfaces import IRawChecker
 from pylint.checkers import BaseChecker
+import six
 
 
 MSGS = {
@@ -54,6 +55,17 @@ class EncodingChecker(BaseChecker):
                           'separated by a comma.')}),)
 
     def _check_note(self, notes, lineno, line):
+        # First, simply check if the notes are in the line at all. This is an
+        # optimisation to prevent using the regular expression on every line,
+        # but rather only on lines which may actually contain one of the notes.
+        # This prevents a pathological problem with lines that are hundreds
+        # of thousands of characters long.
+        for note in self.config.notes:
+            if note in line:
+                break
+        else:
+            return
+
         match = notes.search(line)
         if not match:
             return
@@ -61,8 +73,8 @@ class EncodingChecker(BaseChecker):
 
     def _check_encoding(self, lineno, line, file_encoding):
         try:
-            return unicode(line, file_encoding)
-        except UnicodeDecodeError, ex:
+            return six.text_type(line, file_encoding)
+        except UnicodeDecodeError as ex:
             self.add_message('invalid-encoded-data', line=lineno,
                              args=(file_encoding, ex.args[2]))
 

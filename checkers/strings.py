@@ -30,6 +30,9 @@ from pylint.checkers import BaseChecker, BaseTokenChecker
 from pylint.checkers import utils
 from pylint.checkers.utils import check_messages
 
+import six
+
+
 _PY3K = sys.version_info[:2] >= (3, 0)
 _PY27 = sys.version_info[:2] == (2, 7)
 
@@ -178,6 +181,7 @@ def parse_format_method_string(format_string):
             if isinstance(keyname, numbers.Number):
                 # In Python 2 it will return long which will lead
                 # to different output between 2 and 3
+                manual_pos_arg.add(keyname)
                 keyname = int(keyname)
             keys.append((keyname, list(fielditerator)))
         else:
@@ -230,13 +234,13 @@ class StringFormatChecker(BaseChecker):
         args = node.right
 
         if not (isinstance(left, astroid.Const)
-                and isinstance(left.value, basestring)):
+                and isinstance(left.value, six.string_types)):
             return
         format_string = left.value
         try:
             required_keys, required_num_args = \
                 utils.parse_format_string(format_string)
-        except utils.UnsupportedFormatCharacter, e:
+        except utils.UnsupportedFormatCharacter as e:
             c = format_string[e.index]
             self.add_message('bad-format-character',
                              node=node, args=(c, ord(c), e.index))
@@ -259,7 +263,7 @@ class StringFormatChecker(BaseChecker):
                 for k, _ in args.items:
                     if isinstance(k, astroid.Const):
                         key = k.value
-                        if isinstance(key, basestring):
+                        if isinstance(key, six.string_types):
                             keys.add(key)
                         else:
                             self.add_message('bad-format-string-key',
@@ -345,7 +349,7 @@ class StringMethodsChecker(BaseChecker):
         if not isinstance(node.func.expr, astroid.Const):
             return
         try:
-            strnode = func.bound.infer().next()
+            strnode = next(func.bound.infer())
         except astroid.InferenceError:
             return
         if not isinstance(strnode, astroid.Const):
@@ -363,10 +367,8 @@ class StringMethodsChecker(BaseChecker):
             self.add_message('bad-format-string', node=node)
             return
 
-        manual_fields = set(field[0] for field in fields
-                            if isinstance(field[0], numbers.Number))
         named_fields = set(field[0] for field in fields
-                           if isinstance(field[0], basestring))
+                           if isinstance(field[0], six.string_types))
         if num_args and manual_pos:
             self.add_message('format-combined-specification',
                              node=node)
@@ -405,12 +407,7 @@ class StringMethodsChecker(BaseChecker):
             # num_args can be 0 if manual_pos is not.
             num_args = num_args or manual_pos
             if positional > num_args:
-                # We can have two possibilities:
-                # * "{0} {1}".format(a, b)
-                # * "{} {} {}".format(a, b, c, d)
-                # We can check the manual keys for the first one.
-                if len(manual_fields) != positional:
-                    self.add_message('too-many-format-args', node=node)
+                self.add_message('too-many-format-args', node=node)
             elif positional < num_args:
                 self.add_message('too-few-format-args', node=node)
 
@@ -441,7 +438,7 @@ class StringMethodsChecker(BaseChecker):
             if argname in (astroid.YES, None):
                 continue
             try:
-                argument = argname.infer().next()
+                argument = next(argname.infer())
             except astroid.InferenceError:
                 continue
             if not specifiers or argument is astroid.YES:
@@ -498,7 +495,7 @@ class StringMethodsChecker(BaseChecker):
                         break
 
                 try:
-                    previous = previous.infer().next()
+                    previous = next(previous.infer())
                 except astroid.InferenceError:
                     # can't check further if we can't infer it
                     break
