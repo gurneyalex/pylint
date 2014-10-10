@@ -62,7 +62,8 @@ STD_BLACKLIST = ('CVS', '.svn', '.hg', 'debian', 'dist', 'build')
 IGNORED_EXTENSIONS = ('.pyc', '.pyo', '.elc', '~')
 
 if exists('README'):
-    long_description = open('README').read()
+    with open('README') as stream:
+        long_description = stream.read()
 else:
     long_description = ''
 
@@ -120,20 +121,13 @@ class MyInstallLib(install_lib.install_lib):
             for directory in include_dirs:
                 dest = join(self.install_dir, base, directory)
                 if sys.version_info >= (3, 0):
-                    exclude = set(('func_unknown_encoding.py',
-                                   'func_invalid_encoded_data.py',
-                                   'invalid_encoded_data.py'))
+                    exclude = {'invalid_encoded_data*',
+                               'unknown_encoding*'}
                 else:
                     exclude = set()
                 shutil.rmtree(dest, ignore_errors=True)
-                shutil.copytree(directory, dest)
-                # since python2.5's copytree doesn't support the ignore
-                # parameter, the following loop to remove the exclude set
-                # was added
-                for (dirpath, _, filenames) in os.walk(dest):
-                    for n in filenames:
-                        if n in exclude:
-                            os.remove(os.path.join(dirpath, n))
+                shutil.copytree(directory, dest,
+                                ignore=shutil.ignore_patterns(*exclude))
                 if sys.version_info >= (3, 0):
                     # process manually python file in include_dirs (test data)
                     # pylint: disable=no-name-in-module

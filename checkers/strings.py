@@ -145,8 +145,8 @@ def collect_string_fields(format_string):
     """
 
     formatter = string.Formatter()
-    parseiterator = formatter.parse(format_string)
     try:
+        parseiterator = formatter.parse(format_string)
         for result in parseiterator:
             if all(item is None for item in result[1:]):
                 # not a replacement format
@@ -346,7 +346,13 @@ class StringMethodsChecker(BaseChecker):
         #       We do this because our inference engine can't properly handle
         #       redefinitions of the original string.
         #       For more details, see issue 287.
-        if not isinstance(node.func.expr, astroid.Const):
+        #
+        # Note that there may not be any left side at all, if the format method
+        # has been assigned to another variable. See issue 351. For example:
+        #
+        #    fmt = 'some string {}'.format
+        #    fmt('arg')
+        if hasattr(node.func, 'expr') and not isinstance(node.func.expr, astroid.Const):
             return
         try:
             strnode = next(func.bound.infer())
