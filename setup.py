@@ -20,6 +20,7 @@
 # with pylint.  If not, see <http://www.gnu.org/licenses/>.
 """Generic Setup script, takes package info from __pkginfo__.py file.
 """
+from __future__ import absolute_import, print_function
 __docformat__ = "restructuredtext en"
 
 import os
@@ -31,46 +32,39 @@ try:
     if os.environ.get('NO_SETUPTOOLS'):
         raise ImportError()
     from setuptools import setup
+    from setuptools.command import easy_install as easy_install_lib
     from setuptools.command import install_lib
     USE_SETUPTOOLS = 1
 except ImportError:
     from distutils.core import setup
     from distutils.command import install_lib
     USE_SETUPTOOLS = 0
+    easy_install_lib = None
 
-try:
-    # pylint: disable=no-name-in-module
-    # python3
-    from distutils.command.build_py import build_py_2to3 as build_py
-except ImportError:
-    # pylint: disable=no-name-in-module
-    # python2.x
-    from distutils.command.build_py import build_py
+from distutils.command.build_py import build_py
 
-sys.modules.pop('__pkginfo__', None)
-# import optional features
-__pkginfo__ = __import__("__pkginfo__")
-# import required features
-from __pkginfo__ import modname, version, license, description, \
-     web, author, author_email, classifiers
 
-distname = getattr(__pkginfo__, 'distname', modname)
-scripts = getattr(__pkginfo__, 'scripts', [])
-data_files = getattr(__pkginfo__, 'data_files', None)
-subpackage_of = getattr(__pkginfo__, 'subpackage_of', None)
-include_dirs = getattr(__pkginfo__, 'include_dirs', [])
-ext_modules = getattr(__pkginfo__, 'ext_modules', None)
-install_requires = getattr(__pkginfo__, 'install_requires', None)
-dependency_links = getattr(__pkginfo__, 'dependency_links', [])
+base_dir = os.path.dirname(__file__)
 
-STD_BLACKLIST = ('CVS', '.svn', '.hg', 'debian', 'dist', 'build')
+__pkginfo__ = {}
+with open(os.path.join(base_dir, "pylint", "__pkginfo__.py")) as f:
+    exec(f.read(), __pkginfo__)
+modname = __pkginfo__['modname']
+distname = __pkginfo__.get('distname', modname)
+scripts = __pkginfo__.get('scripts', [])
+data_files = __pkginfo__.get('data_files', None)
+include_dirs = __pkginfo__.get('include_dirs', [])
+ext_modules = __pkginfo__.get('ext_modules', None)
+install_requires = __pkginfo__.get('install_requires', None)
+dependency_links = __pkginfo__.get('dependency_links', [])
 
-IGNORED_EXTENSIONS = ('.pyc', '.pyo', '.elc', '~')
-
-if exists('README'):
-    long_description = open('README').read()
+readme_path = join(base_dir, 'README')
+if exists(readme_path):
+    with open(readme_path) as stream:
+        long_description = stream.read()
 else:
     long_description = ''
+
 
 def ensure_scripts(linux_scripts):
     """Creates the proper script names required for each platform
@@ -80,6 +74,7 @@ def ensure_scripts(linux_scripts):
     if util.get_platform()[:3] == 'win':
         return linux_scripts + [script + '.bat' for script in linux_scripts]
     return linux_scripts
+
 
 def get_packages(directory, prefix):
     """return a list of subpackages for the given directory"""
@@ -95,12 +90,11 @@ def get_packages(directory, prefix):
                 result += get_packages(absfile, result[-1])
     return result
 
-EMPTY_FILE = '''"""generated file, don't modify or your data will be lost"""
-try:
-    __import__('pkg_resources').declare_namespace(__name__)
-except ImportError:
-    pass
-'''
+
+def _filter_tests(files):
+    testdir = join('pylint', 'test')
+    return [f for f in files if testdir not in f]
+
 
 class MyInstallLib(install_lib.install_lib):
     """extend install_lib command to handle package __init__.py and
@@ -109,44 +103,41 @@ class MyInstallLib(install_lib.install_lib):
     def run(self):
         """overridden from install_lib class"""
         install_lib.install_lib.run(self)
-        # create Products.__init__.py if needed
-        if subpackage_of:
-            product_init = join(self.install_dir, subpackage_of, '__init__.py')
-            if not exists(product_init):
-                self.announce('creating %s' % product_init)
-                stream = open(product_init, 'w')
-                stream.write(EMPTY_FILE)
-                stream.close()
         # manually install included directories if any
         if include_dirs:
-            if subpackage_of:
-                base = join(subpackage_of, modname)
-            else:
-                base = modname
             for directory in include_dirs:
-                dest = join(self.install_dir, base, directory)
+                dest = join(self.install_dir, directory)
                 if sys.version_info >= (3, 0):
-                    exclude = set(('func_unknown_encoding.py',
-                                   'func_invalid_encoded_data.py'))
+                    exclude = set(['invalid_encoded_data*',
+                                   'unknown_encoding*'])
                 else:
                     exclude = set()
                 shutil.rmtree(dest, ignore_errors=True)
-                shutil.copytree(directory, dest)
-                # since python2.5's copytree doesn't support the ignore 
-                # parameter, the following loop to remove the exclude set
-                # was added
-                for (dirpath, dirnames, filenames) in os.walk(dest):
-                    for n in filenames:
-                        if n in exclude:
-                            os.remove(os.path.join(dirpath, n))
-
-
+                shutil.copytree(directory, dest,
+                                ignore=shutil.ignore_patterns(*exclude))
                 if sys.version_info >= (3, 0):
                     # process manually python file in include_dirs (test data)
                     # pylint: disable=no-name-in-module
                     from distutils.util import run_2to3
-                    print('running 2to3 on', dest)
+                    print(('running 2to3 on', dest))
                     run_2to3([dest])
+
+    # override this since pip/easy_install attempt to byte compile test data
+    # files, some of them being syntactically wrong by design, and this scares
+    # the end-user
+    def byte_compile(self, files):
+        files = _filter_tests(files)
+        install_lib.install_lib.byte_compile(self, files)
+
+
+if easy_install_lib:
+    class easy_install(easy_install_lib.easy_install):
+        # override this since pip/easy_install attempt to byte compile
+        # test data files, some of them being syntactically wrong by design,
+        # and this scares the end-user
+        def byte_compile(self, files):
+            files = _filter_tests(files)
+            easy_install_lib.easy_install.byte_compile(self, files)
 
 
 def install(**kwargs):
@@ -157,42 +148,37 @@ def install(**kwargs):
     # install-layout option was introduced in 2.5.3-1~exp1
     elif sys.version_info < (2, 5, 4) and '--install-layout=deb' in sys.argv:
         sys.argv.remove('--install-layout=deb')
-    if subpackage_of:
-        package = subpackage_of + '.' + modname
-        kwargs['package_dir'] = {package : '.'}
-        packages = [package] + get_packages(os.getcwd(), package)
-        if USE_SETUPTOOLS:
-            kwargs['namespace_packages'] = [subpackage_of]
-    else:
-        kwargs['package_dir'] = {modname : '.'}
-        packages = [modname] + get_packages(os.getcwd(), modname)
+    packages = [modname] + get_packages(join(base_dir, 'pylint'), modname)
     if USE_SETUPTOOLS:
         if install_requires:
             kwargs['install_requires'] = install_requires
             kwargs['dependency_links'] = dependency_links
         kwargs['entry_points'] = {'console_scripts': [
-                'pylint = pylint:run_pylint',
-                'pylint-gui = pylint:run_pylint_gui',
-                'epylint = pylint:run_epylint',
-                'pyreverse = pylint:run_pyreverse',
-                'symilar = pylint:run_symilar',
-                ]}
+            'pylint = pylint:run_pylint',
+            'pylint-gui = pylint:run_pylint_gui',
+            'epylint = pylint:run_epylint',
+            'pyreverse = pylint:run_pyreverse',
+            'symilar = pylint:run_symilar',
+        ]}
     kwargs['packages'] = packages
+    cmdclass = {'install_lib': MyInstallLib,
+                'build_py': build_py}
+    if easy_install_lib:
+        cmdclass['easy_install'] = easy_install
     return setup(name=distname,
-                 version=version,
+                 version=__pkginfo__['version'],
                  license=license,
-                 description=description,
+                 description=__pkginfo__['description'],
                  long_description=long_description,
-                 author=author,
-                 author_email=author_email,
-                 url=web,
+                 author=__pkginfo__['author'],
+                 author_email=__pkginfo__['author_email'],
+                 url=__pkginfo__['web'],
                  scripts=ensure_scripts(scripts),
-                 classifiers=classifiers,
+                 classifiers=__pkginfo__['classifiers'],
                  data_files=data_files,
                  ext_modules=ext_modules,
-                 cmdclass={'install_lib': MyInstallLib,
-                             'build_py': build_py},
+                 cmdclass=cmdclass,
                  **kwargs)
 
-if __name__ == '__main__' :
+if __name__ == '__main__':
     install()
