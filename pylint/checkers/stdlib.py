@@ -88,7 +88,7 @@ class StdlibChecker(BaseChecker):
                   'See http://docs.python.org/2/library/functions.html#open'),
         'W1502': ('Using datetime.time in a boolean context.',
                   'boolean-datetime',
-                  'Using datetetime.time in a boolean context can hide '
+                  'Using datetime.time in a boolean context can hide '
                   'subtle bugs when the time they represent matches '
                   'midnight UTC. This behaviour was fixed in Python 3.5. '
                   'See http://bugs.python.org/issue13936 for reference.',
@@ -96,8 +96,8 @@ class StdlibChecker(BaseChecker):
         'W1503': ('Redundant use of %s with constant '
                   'value %r',
                   'redundant-unittest-assert',
-                  'The first argument of assertTrue and assertFalse is'
-                  'a condition. If a constant is passed as parameter, that'
+                  'The first argument of assertTrue and assertFalse is '
+                  'a condition. If a constant is passed as parameter, that '
                   'condition will be always true. In this case a warning '
                   'should be emitted.')
     }
