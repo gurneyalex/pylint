@@ -1,7 +1,7 @@
 ChangeLog for Pylint
 --------------------
 
-NOT RELEASED YET -- VERSION
+RELEASE DATE -- VERSION
     * Don't require a docstring for empty modules. Closes issue #261.
 
     * Fix a false positive with `too-few-format-args` string warning,
@@ -43,6 +43,14 @@ NOT RELEASED YET -- VERSION
 
     * Add support for combining the Python 3 checker mode with the --jobs
       flag (--py3k and --jobs). Closes issue #467.
+
+    * Add a new warning for the Python 3 porting checker, 'using-cmp-argument',
+      emitted when the `cmp` argument for the `list.sort` or `sorted builtin`
+      is encountered.
+
+    * Make the --py3k flag commutative with the -E flag. Also, this patch
+      fixes the leaks of error messages from the Python 3 checker when
+      the errors mode was activated. Closes issue #437.
 
 
 2015-01-16 -- 1.4.1
@@ -315,9 +323,9 @@ NOT RELEASED YET -- VERSION
       the 'a' format on Python 3.
 
     * Add multiple checks for PEP 3101 advanced string formatting:
-     'bad-format-string', 'missing-format-argument-key',
-     'unused-format-string-argument', 'format-combined-specification',
-     'missing-format-attribute' and 'invalid-format-index'.
+      'bad-format-string', 'missing-format-argument-key',
+      'unused-format-string-argument', 'format-combined-specification',
+      'missing-format-attribute' and 'invalid-format-index'.
 
     * Issue broad-except and bare-except even if the number
       of except handlers is different than 1. Fixes issue #113.
@@ -477,7 +485,7 @@ NOT RELEASED YET -- VERSION
       Golemon
 
     * Add new warnings for checking proper class __slots__:
-     `invalid-slots-object` and `invalid-slots`.
+      `invalid-slots-object` and `invalid-slots`.
 
     * Search for rc file in `~/.config/pylintrc` if `~/.pylintrc`
       doesn't exists (#121)
@@ -799,10 +807,10 @@ NOT RELEASED YET -- VERSION
       (patch by tmarek@google.com)
 
     * #7394: W0212 (access to protected member) not emited on assigments
-    (patch by lothiraldan@gmail.com)
+      (patch by lothiraldan@gmail.com)
 
     * #18772; no prototype consistency check for mangled methods (patch by
-    lothiraldan@gmail.com)
+      lothiraldan@gmail.com)
 
     * #92911: emit W0102 when sets are used as default arguments in functions
       (patch by tmarek@google.com)

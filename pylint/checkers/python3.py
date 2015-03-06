@@ -18,6 +18,7 @@ import re
 import tokenize
 
 import astroid
+from astroid import bases
 from pylint import checkers, interfaces
 from pylint.utils import WarningScope
 from pylint.checkers import utils
@@ -217,13 +218,13 @@ class Python3Checker(checkers.BaseChecker):
         'W1618': ('import missing `from __future__ import absolute_import`',
                   'no-absolute-import',
                   'Used when an import is not accompanied by '
-                  '`from __future__ import absolute_import`'
-                  ' (default behaviour in Python 3)',
+                  '``from __future__ import absolute_import`` '
+                  '(default behaviour in Python 3)',
                   {'maxversion': (3, 0)}),
         'W1619': ('division w/o __future__ statement',
                   'old-division',
                   'Used for non-floor division w/o a float literal or '
-                  '``from __future__ import division``'
+                  '``from __future__ import division`` '
                   '(Python 3 returns a float for int division unconditionally)',
                   {'maxversion': (3, 0)}),
         'W1620': ('Calling a dict.iter*() method',
@@ -326,6 +327,13 @@ class Python3Checker(checkers.BaseChecker):
                   'Used when the filter built-in is referenced in a non-iterating '
                   'context (returns an iterator in Python 3)',
                   {'maxversion': (3, 0)}),
+        'W1640': ('Using the cmp argument for list.sort / sorted',
+                  'using-cmp-argument',
+                  'Using the cmp argument for list.sort or the sorted '
+                  'builtin should be avoided, since it was removed in '
+                  'Python 3. Using either `key` or `functools.cmp_to_key` '
+                  'should be preferred.',
+                  {'maxversion': (3, 0)}),
     }
 
     _bad_builtins = frozenset([
@@ -425,7 +433,38 @@ class Python3Checker(checkers.BaseChecker):
             else:
                 self.add_message('old-division', node=node)
 
+    def _check_cmp_argument(self, node):
+        # Check that the `cmp` argument is used
+        args = []
+        if (isinstance(node.func, astroid.Getattr)
+                and node.func.attrname == 'sort'):
+            inferred = utils.safe_infer(node.func.expr)
+            if not inferred:
+                return
+
+            builtins_list = "{}.list".format(bases.BUILTINS)
+            if (isinstance(inferred, astroid.List)
+                    or inferred.qname() == builtins_list):
+                args = node.args
+
+        elif (isinstance(node.func, astroid.Name)
+                and node.func.name == 'sorted'):
+            inferred = utils.safe_infer(node.func)
+            if not inferred:
+                return
+
+            builtins_sorted = "{}.sorted".format(bases.BUILTINS)
+            if inferred.qname() == builtins_sorted:
+                args = node.args
+
+        for arg in args:
+            if isinstance(arg, astroid.Keyword) and arg.arg == 'cmp':
+                self.add_message('using-cmp-argument', node=node)
+                return
+
     def visit_callfunc(self, node):
+        self._check_cmp_argument(node)
+
         if isinstance(node.func, astroid.Getattr):
             if any([node.args, node.starargs, node.kwargs]):
                 return
