@@ -29,7 +29,6 @@ from __future__ import print_function
 
 import collections
 import contextlib
-import itertools
 import operator
 import os
 try:
@@ -97,7 +96,11 @@ def _get_python_path(filepath):
 
 def _merge_stats(stats):
     merged = {}
+    by_msg = collections.Counter()
     for stat in stats:
+        message_stats = stat.pop('by_msg', {})
+        by_msg.update(message_stats)
+
         for key, item in six.iteritems(stat):
             if key not in merged:
                 merged[key] = item
@@ -106,6 +109,8 @@ def _merge_stats(stats):
                     merged[key].update(item)
                 else:
                     merged[key] = merged[key] + item
+
+    merged['by_msg'] = by_msg
     return merged
 
 
@@ -402,24 +407,24 @@ class PyLinter(configuration.OptionsManagerMixIn,
                            ' may run arbitrary code.')}),
 
                 ('extension-pkg-whitelist',
-                  {'type': 'csv', 'metavar': '<pkg[,pkg]>', 'default': [],
-                   'help': ('A comma-separated list of package or module names'
-                            ' from where C extensions may be loaded. Extensions are'
-                            ' loading into the active Python interpreter and may run'
-                            ' arbitrary code')}
-                  ),
+                 {'type': 'csv', 'metavar': '<pkg[,pkg]>', 'default': [],
+                  'help': ('A comma-separated list of package or module names'
+                           ' from where C extensions may be loaded. Extensions are'
+                           ' loading into the active Python interpreter and may run'
+                           ' arbitrary code')}
+                ),
 
                 ('optimize-ast',
-                  {'type': 'yn', 'metavar': '<yn>', 'default': False,
-                   'help': ('Allow optimization of some AST trees. This will '
-                            'activate a peephole AST optimizer, which will '
-                            'apply various small optimizations. For instance, '
-                            'it can be used to obtain the result of joining '
-                            'multiple strings with the addition operator. '
-                            'Joining a lot of strings can lead to a maximum '
-                            'recursion error in Pylint and this flag can prevent '
-                            'that. It has one side effect, the resulting AST '
-                            'will be different than the one from reality.')}
+                 {'type': 'yn', 'metavar': '<yn>', 'default': False,
+                  'help': ('Allow optimization of some AST trees. This will '
+                           'activate a peephole AST optimizer, which will '
+                           'apply various small optimizations. For instance, '
+                           'it can be used to obtain the result of joining '
+                           'multiple strings with the addition operator. '
+                           'Joining a lot of strings can lead to a maximum '
+                           'recursion error in Pylint and this flag can prevent '
+                           'that. It has one side effect, the resulting AST '
+                           'will be different than the one from reality.')}
                 ),
                )
 
@@ -528,8 +533,8 @@ class PyLinter(configuration.OptionsManagerMixIn,
                     meth = self._options_methods[optname]
                 except KeyError:
                     meth = self._bw_options_methods[optname]
-                    warnings.warn('%s is deprecated, replace it by %s' % (
-                                  optname, optname.split('-')[0]),
+                    warnings.warn('%s is deprecated, replace it by %s' % (optname,
+                                                                          optname.split('-')[0]),
                                   DeprecationWarning)
                 value = optik_ext.check_csv(None, optname, value)
                 if isinstance(value, (list, tuple)):
@@ -827,7 +832,7 @@ class PyLinter(configuration.OptionsManagerMixIn,
             all_stats.append(stats)
             self.msg_status |= msg_status
 
-        self.stats = _merge_stats(itertools.chain(all_stats, [self.stats]))
+        self.stats = _merge_stats(all_stats)
         self.current_name = module
 
         # Insert stats data to local checkers.
@@ -915,7 +920,7 @@ class PyLinter(configuration.OptionsManagerMixIn,
             if isinstance(ex.args[0], SyntaxError):
                 ex = ex.args[0]
                 self.add_message('syntax-error',
-                                 line=ex.lineno,
+                                 line=ex.lineno or 0,
                                  args=ex.msg)
             else:
                 self.add_message('parse-error', args=ex)
@@ -1277,7 +1282,6 @@ group are mutually exclusive.'),
 'been issued by analysing pylint output status code\n',
                                 level=1)
         # read configuration
-        linter.disable('pointless-except')
         linter.disable('suppressed-message')
         linter.disable('useless-suppression')
         linter.read_config_file()

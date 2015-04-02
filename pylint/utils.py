@@ -133,7 +133,7 @@ def category_id(cid):
 
 def _decoding_readline(stream, module):
     return lambda: stream.readline().decode(module.file_encoding,
-                                           'replace')
+                                            'replace')
 
 
 def tokenize_module(module):
@@ -818,7 +818,7 @@ class PyLintASTWalker(object):
 
     def __init__(self, linter):
         # callbacks per node types
-        self.nbstatements = 1
+        self.nbstatements = 0
         self.visit_events = collections.defaultdict(list)
         self.leave_events = collections.defaultdict(list)
         self.linter = linter
