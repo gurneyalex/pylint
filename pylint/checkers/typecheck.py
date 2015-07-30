@@ -143,7 +143,7 @@ SEQUENCE_TYPES = set(['str', 'unicode', 'list', 'tuple', 'bytearray',
                       'xrange', 'range', 'bytes', 'memoryview'])
 
 
-def _emit_no_member(node, owner, owner_name, attrname, ignored_mixins):
+def _emit_no_member(node, owner, owner_name, ignored_mixins):
     """Try to see if no-member should be emitted for the given owner.
 
     The following cases are ignored:
@@ -180,20 +180,6 @@ def _emit_no_member(node, owner, owner_name, attrname, ignored_mixins):
             return False
         if not all(map(helpers.has_known_bases, owner.type.mro())):
             return False
-    if isinstance(owner, astroid.Class):
-        # Look up in the metaclass only if the owner is itself
-        # a class.
-        # TODO: getattr doesn't return by default members
-        # from the metaclass, because handling various cases
-        # of methods accessible from the metaclass itself
-        # and/or subclasses only is too complicated for little to
-        # no benefit.
-        metaclass = owner.metaclass() or owner.implicit_metaclass()
-        try:
-            if metaclass and metaclass.getattr(attrname):
-                return False
-        except NotFoundError:
-            pass
     return True
 
 
@@ -364,7 +350,7 @@ accessed. Python regular expressions are accepted.'}
                 # but we continue to the next values which doesn't have the
                 # attribute, then we'll have a false positive.
                 # So call this only after the call has been made.
-                if not _emit_no_member(node, owner, name, node.attrname,
+                if not _emit_no_member(node, owner, name,
                                        self.config.ignore_mixin_members):
                     continue
                 missingattr.add((owner, name))
