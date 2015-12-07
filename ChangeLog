@@ -2,6 +2,24 @@ ChangeLog for Pylint
 --------------------
 
 --
+    
+    * Added a new error, 'relative-beyond-top-level', which is emitted
+      when a relative import was attempted beyond the top level package.
+
+      Closes issue #588.
+
+    * Accept only functions and methods for the deprecated-method checker.
+
+     This prevents a crash which can occur when an object doesn't have
+     .qname() method after the inference.
+
+    * Don't emit super-on-old-class on classes with unknown bases.
+      Closes issue #721.
+
+    * Allow statements in `if` or `try` blocks containing imports.
+
+      Closes issue #714. 
+
     * Added a new warning, 'unsupported-assignment-operation', which is
       emitted when item assignment is tried on an object which doesn't
       have this ability. Closes issue #591.
@@ -9,6 +27,10 @@ ChangeLog for Pylint
     * Added a new warning, 'unsupported-delete-operation', which is
       emitted when item deletion is tried on an object which doesn't
       have this ability. Closes issue #592.
+
+
+2015-12-02 -- 1.5.1
+
 
     * Fix a crash which occurred when old visit methods are encountered
       in plugin modules. Closes issue #711.
