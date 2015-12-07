@@ -88,6 +88,14 @@ def _get_first_import(node, context, name, base, level):
     if found and not are_exclusive(first, node):
         return first
 
+
+def _ignore_import_failure(node, modname, ignored_modules):
+    for submodule in _qualified_names(modname):
+        if submodule in ignored_modules:
+            return True
+
+    return node_ignores_exception(node, ImportError)
+
 # utilities to represents import dependencies as tree and dot graph ###########
 
 def _make_tree_defs(mod_files_list):
@@ -161,6 +169,10 @@ MSGS = {
               'import-error',
               'Used when pylint has been unable to import a module.',
               {'old_names': [('F0401', 'import-error')]}),
+    'E0402': ('Attempted relative import beyond top-level package',
+              'relative-beyond-top-level',
+              'Used when a relative import tries to access too many levels '
+              'in the current package.'),
     'R0401': ('Cyclic import (%s)',
               'cyclic-import',
               'Used when a cyclic import between two or more modules is \
@@ -298,7 +310,7 @@ given file (report RP0402 must not be disabled)'}
 
         for name in names:
             self._check_deprecated_module(node, name)
-            importedmodnode = self.get_imported_module(node, name)
+            importedmodnode = self._get_imported_module(node, name)
             if isinstance(node.scope(), astroid.Module):
                 self._check_position(node)
                 self._record_import(node, importedmodnode)
@@ -320,7 +332,7 @@ given file (report RP0402 must not be disabled)'}
         self._check_reimport(node, basename=basename, level=node.level)
 
         modnode = node.root()
-        importedmodnode = self.get_imported_module(node, basename)
+        importedmodnode = self._get_imported_module(node, basename)
         if isinstance(node.scope(), astroid.Module):
             self._check_position(node)
             self._record_import(node, importedmodnode)
@@ -369,9 +381,24 @@ given file (report RP0402 must not be disabled)'}
             = visit_ifexp = visit_comprehension = visit_if
 
     def visit_functiondef(self, node):
-        # if it is the first non import instruction of the module, record it
-        if not self._first_non_import_node:
-            self._first_non_import_node = node
+        # If it is the first non import instruction of the module, record it.
+        if self._first_non_import_node:
+            return
+
+        # Check if the node belongs to an `If` or a `Try` block. If they
+        # contain imports, skip recording this node.
+        if not isinstance(node.parent.scope(), astroid.Module):
+            return
+
+        root = node
+        while not isinstance(root.parent, astroid.Module):
+            root = root.parent
+
+        if isinstance(root, (astroid.If, astroid.TryFinally, astroid.TryExcept)):
+            if any(root.nodes_of_class((astroid.Import, astroid.ImportFrom))):
+                return
+
+        self._first_non_import_node = node
 
     visit_classdef = visit_for = visit_while = visit_functiondef
 
@@ -458,22 +485,22 @@ given file (report RP0402 must not be disabled)'}
                                        '"%s"' % local_imports[0][0].as_string()))
         return std_imports, extern_imports, local_imports
 
-    def get_imported_module(self, importnode, modname):
+    def _get_imported_module(self, importnode, modname):
         try:
             return importnode.do_import_module(modname)
-        except astroid.InferenceError as ex:
+        except astroid.TooManyLevelsError:
+            if _ignore_import_failure(importnode, modname, self._ignored_modules):
+                return None
+
+            self.add_message('relative-beyond-top-level', node=importnode)            
+
+        except astroid.AstroidBuildingException as exc:
+            if _ignore_import_failure(importnode, modname, self._ignored_modules):
+                return None
+
             dotted_modname = _get_import_name(importnode, modname)
-            if str(ex) != modname:
-                args = '%r (%s)' % (dotted_modname, ex)
-            else:
-                args = repr(dotted_modname)
-
-            for submodule in _qualified_names(modname):
-                if submodule in self._ignored_modules:
-                    return None
-
-            if not node_ignores_exception(importnode, ImportError):
-                self.add_message("import-error", args=args, node=importnode)
+            self.add_message('import-error', args=repr(dotted_modname),
+                             node=importnode)
 
     def _check_relative_import(self, modnode, importnode, importedmodnode,
                                importedasname):
